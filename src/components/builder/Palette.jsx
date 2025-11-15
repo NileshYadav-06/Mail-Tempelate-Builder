@@ -121,7 +121,6 @@ import {
 } from "lucide-react";
 import PaletteItem from "../ui/PaletteItem";
 
-// UPDATED PROP LIST
 const Palette = ({
   historyState,
   onUndo,
@@ -201,7 +200,7 @@ const Palette = ({
             type={def.type}
             label={def.label}
             icon={def.icon}
-            onDragStart={onDragStart} // PASS THE FUNCTION DOWN
+            onDragStart={() => onDragStart(def.type)} // PASS THE COMPONENT TYPE
           />
         ))}
       </div>

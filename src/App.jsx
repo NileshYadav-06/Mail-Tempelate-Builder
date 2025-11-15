@@ -779,31 +779,25 @@ export default function App() {
     const dropTargetIndex =
       dragOverIndex !== null ? dragOverIndex : newComponents.length - 1;
 
-    if (type && draggedComponentIndex === null) {
-      // Drop new component from palette
+    // IMPORTANT: On mobile, new component insertion is handled in closePalette,
+    // so we only proceed here for desktop drag/drop or reordering.
+    if (type && draggedComponentIndex === null && isLargeScreen) {
+      // Desktop Drop new component from palette
       const newComponent = getDefaults(type);
       const insertIndex =
         dropPosition === "below" && dragOverIndex !== null
           ? dropTargetIndex + 1
-          : dragOverIndex === null && dropPosition === "below"
-          ? newComponents.length
           : dropTargetIndex;
 
       newComponents.splice(insertIndex, 0, newComponent);
       setComponents(newComponents);
       setSelectedComponent(newComponent);
-
-      // FIX: Automatically switch to editor view on mobile after dropping a new component
-      if (!isLargeScreen) {
-        setShowPalette(false);
-        setShowEditor(true);
-      }
     } else if (
       draggedComponentIndex !== null &&
       dragOverIndex !== null &&
       dropPosition !== null
     ) {
-      // Reorder existing component
+      // Reorder existing component (works on both desktop/mobile via handleDragStartCanvas)
       const [movedItem] = newComponents.splice(draggedComponentIndex, 1);
       let targetIndex = dropTargetIndex;
 
@@ -841,13 +835,14 @@ export default function App() {
     e.dataTransfer.dropEffect =
       draggedComponentIndex !== null ? "move" : "copy";
 
-    if (isDraggingFromPalette) {
-      // If dragging from palette, ignore component targets and make the whole area the target
+    if (isDraggingFromPalette && !isLargeScreen) {
+      // Simplified drop target when dragging from palette on mobile
       setDropPosition("below");
       setDragOverIndex(components.length);
       return;
     }
 
+    // Standard desktop/reordering logic
     const targetElement = e.target.closest(
       ".email-component-draggable-wrapper"
     );
@@ -922,11 +917,23 @@ export default function App() {
     setShowEditor((e) => !e);
   };
 
-  // NEW FUNCTION: Closes the palette and sets drag state upon starting a drag from PaletteItem
-  const closePalette = () => {
+  // CRITICAL FIX: Closes the palette AND inserts the component on mobile drag start
+  const closePalette = (type) => {
     if (!isLargeScreen) {
       setShowPalette(false);
-      // We set the dragging state here to show the big drop zone immediately
+
+      // **MOBILE: INSTANT INSERT**
+      const newComponent = getDefaults(type);
+      setComponents((prev) => [...prev, newComponent]);
+      setSelectedComponent(newComponent);
+      setShowEditor(true); // Open the editor immediately after inserting
+
+      // Use isDraggingFromPalette to show the *new* component's selection ring immediately
+      // (Though technically the drag is over since insertion is done, we briefly use this
+      // to handle the immediate visual state if needed, though mostly obsolete with instant insert)
+      // setIsDraggingFromPalette(true);
+    } else {
+      // Desktop: Only set dragging state to enable visual feedback before the drop event fires
       setIsDraggingFromPalette(true);
     }
   };
@@ -1054,8 +1061,9 @@ export default function App() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="p-4 min-h-[600px]">
-                {/* CONDITIONAL RENDERING FOR DRAG-AND-DROP USABILITY FIX */}
-                {components.length === 0 || isDraggingFromPalette ? (
+                {/* CONDITIONAL RENDERING FOR DRAG-AND-DROP USABILITY FIX (Desktop/Empty state) */}
+                {components.length === 0 ||
+                (isDraggingFromPalette && isLargeScreen) ? (
                   <div
                     className={`flex flex-col items-center justify-center h-full min-h-[500px] text-text-secondary border-4 border-dashed rounded-xl m-4 p-8 transition-all-medium animate-fade-in
                                  ${

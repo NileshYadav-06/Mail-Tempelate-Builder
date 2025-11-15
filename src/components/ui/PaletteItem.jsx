@@ -24,7 +24,6 @@
 
 import React from "react";
 
-// UPDATED PROP LIST
 const PaletteItem = ({
   type,
   label,
@@ -32,12 +31,12 @@ const PaletteItem = ({
   onDragStart: onPropDragStart,
 }) => {
   const handleDragStart = (e) => {
-    // 1. Execute the prop function (will close the panel on mobile)
+    // Execute the prop function (will close the panel and insert component on mobile)
     if (onPropDragStart) {
       onPropDragStart();
     }
 
-    // 2. Initiate the native drag operation
+    // Initiate the native drag operation (required for desktop functionality)
     e.dataTransfer.setData("componentType", type);
     e.dataTransfer.effectAllowed = "copy";
   };
