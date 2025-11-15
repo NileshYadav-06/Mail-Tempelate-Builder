@@ -640,7 +640,7 @@ export default function App() {
   const [draggedComponentIndex, setDraggedComponentIndex] = useState(null);
   const [dropPosition, setDropPosition] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
-  const [isDraggingFromPalette, setIsDraggingFromPalette] = useState(false); // NEW STATE FOR MOBILE USABILITY
+  const [isDraggingFromPalette, setIsDraggingFromPalette] = useState(false);
   const canvasRef = useRef(null);
 
   // --- Initial Setup and Persistence & Responsiveness Checks ---
@@ -767,7 +767,7 @@ export default function App() {
     e.dataTransfer.effectAllowed = "move";
     setDraggedComponentIndex(index);
     setSelectedComponent(components[index]);
-    setIsDraggingFromPalette(false); // Ensure this is false for component reordering
+    setIsDraggingFromPalette(false);
   };
 
   const handleDropOnCanvas = (e) => {
@@ -831,32 +831,26 @@ export default function App() {
     setDraggedComponentIndex(null);
     setDragOverIndex(null);
     setDropPosition(null);
-    setIsDraggingFromPalette(false); // NEW: Reset state
+    setIsDraggingFromPalette(false);
   };
 
   const handleDragOverCanvas = (e) => {
     e.preventDefault();
     e.stopPropagation();
 
-    const type = e.dataTransfer.getData("componentType");
-    if (type && draggedComponentIndex === null && !isDraggingFromPalette) {
-      // NEW: Dragging a new component from the palette
-      setIsDraggingFromPalette(true);
-    }
-
     e.dataTransfer.dropEffect =
       draggedComponentIndex !== null ? "move" : "copy";
+
+    if (isDraggingFromPalette) {
+      // If dragging from palette, ignore component targets and make the whole area the target
+      setDropPosition("below");
+      setDragOverIndex(components.length);
+      return;
+    }
 
     const targetElement = e.target.closest(
       ".email-component-draggable-wrapper"
     );
-
-    if (isDraggingFromPalette) {
-      // NEW: Simplified drop target when dragging from palette
-      setDropPosition("below");
-      setDragOverIndex(components.length); // Treat as dropping at the end
-      return;
-    }
 
     if (targetElement) {
       const rect = targetElement.getBoundingClientRect();
@@ -882,14 +876,13 @@ export default function App() {
   const handleDragLeaveCanvas = () => {
     setDragOverIndex(null);
     setDropPosition(null);
-    // Do NOT reset setIsDraggingFromPalette here, only on dragEnd/drop
   };
 
   const handleDragEndCanvas = () => {
     setDraggedComponentIndex(null);
     setDragOverIndex(null);
     setDropPosition(null);
-    setIsDraggingFromPalette(false); // NEW: Reset state
+    setIsDraggingFromPalette(false);
   };
 
   // --- Export Handlers ---
@@ -910,7 +903,6 @@ export default function App() {
     e.stopPropagation();
     setSelectedComponent(null);
     if (!isLargeScreen) {
-      // FIX: Allow clicking the canvas to deselect and close both panels
       setShowEditor(false);
       setShowPalette(false);
     }
@@ -918,7 +910,6 @@ export default function App() {
 
   const togglePalette = () => {
     if (!isLargeScreen) {
-      // FIX: Ensure Editor is closed when Palette is opened/toggled on mobile
       setShowEditor(false);
     }
     setShowPalette((p) => !p);
@@ -926,10 +917,18 @@ export default function App() {
 
   const toggleEditor = () => {
     if (!isLargeScreen) {
-      // FIX: Ensure Palette is closed when Editor is opened/toggled on mobile
       setShowPalette(false);
     }
     setShowEditor((e) => !e);
+  };
+
+  // NEW FUNCTION: Closes the palette and sets drag state upon starting a drag from PaletteItem
+  const closePalette = () => {
+    if (!isLargeScreen) {
+      setShowPalette(false);
+      // We set the dragging state here to show the big drop zone immediately
+      setIsDraggingFromPalette(true);
+    }
   };
 
   const canvasMaxWidth =
@@ -1024,6 +1023,7 @@ export default function App() {
               onUndo={handleUndo}
               onRedo={handleRedo}
               onClearTemplate={handleClearTemplateConfirm}
+              onDragStart={closePalette} // PASS THE NEW FUNCTION HERE
             />
             {/* Close Button for Mobile */}
             {!isLargeScreen && (
@@ -1054,7 +1054,7 @@ export default function App() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="p-4 min-h-[600px]">
-                {/* CONDITIONAL RENDERING FOR MOBILE DRAG-AND-DROP USABILITY FIX */}
+                {/* CONDITIONAL RENDERING FOR DRAG-AND-DROP USABILITY FIX */}
                 {components.length === 0 || isDraggingFromPalette ? (
                   <div
                     className={`flex flex-col items-center justify-center h-full min-h-[500px] text-text-secondary border-4 border-dashed rounded-xl m-4 p-8 transition-all-medium animate-fade-in
@@ -1072,7 +1072,7 @@ export default function App() {
                     </p>
                     <p className="text-center">
                       {isDraggingFromPalette
-                        ? "Drop anywhere in this area."
+                        ? "Drop anywhere in this area to insert."
                         : "Drag components from the left panel here to create your layout."}
                     </p>
                   </div>
