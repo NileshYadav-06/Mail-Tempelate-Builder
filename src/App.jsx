@@ -640,6 +640,7 @@ export default function App() {
   const [draggedComponentIndex, setDraggedComponentIndex] = useState(null);
   const [dropPosition, setDropPosition] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
+  const [isDraggingFromPalette, setIsDraggingFromPalette] = useState(false); // NEW STATE FOR MOBILE USABILITY
   const canvasRef = useRef(null);
 
   // --- Initial Setup and Persistence & Responsiveness Checks ---
@@ -766,6 +767,7 @@ export default function App() {
     e.dataTransfer.effectAllowed = "move";
     setDraggedComponentIndex(index);
     setSelectedComponent(components[index]);
+    setIsDraggingFromPalette(false); // Ensure this is false for component reordering
   };
 
   const handleDropOnCanvas = (e) => {
@@ -829,17 +831,33 @@ export default function App() {
     setDraggedComponentIndex(null);
     setDragOverIndex(null);
     setDropPosition(null);
+    setIsDraggingFromPalette(false); // NEW: Reset state
   };
 
   const handleDragOverCanvas = (e) => {
     e.preventDefault();
     e.stopPropagation();
+
+    const type = e.dataTransfer.getData("componentType");
+    if (type && draggedComponentIndex === null && !isDraggingFromPalette) {
+      // NEW: Dragging a new component from the palette
+      setIsDraggingFromPalette(true);
+    }
+
     e.dataTransfer.dropEffect =
       draggedComponentIndex !== null ? "move" : "copy";
 
     const targetElement = e.target.closest(
       ".email-component-draggable-wrapper"
     );
+
+    if (isDraggingFromPalette) {
+      // NEW: Simplified drop target when dragging from palette
+      setDropPosition("below");
+      setDragOverIndex(components.length); // Treat as dropping at the end
+      return;
+    }
+
     if (targetElement) {
       const rect = targetElement.getBoundingClientRect();
       const y = e.clientY - rect.top;
@@ -864,12 +882,14 @@ export default function App() {
   const handleDragLeaveCanvas = () => {
     setDragOverIndex(null);
     setDropPosition(null);
+    // Do NOT reset setIsDraggingFromPalette here, only on dragEnd/drop
   };
 
   const handleDragEndCanvas = () => {
     setDraggedComponentIndex(null);
     setDragOverIndex(null);
     setDropPosition(null);
+    setIsDraggingFromPalette(false); // NEW: Reset state
   };
 
   // --- Export Handlers ---
@@ -1034,15 +1054,26 @@ export default function App() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="p-4 min-h-[600px]">
-                {components.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full min-h-[500px] text-text-secondary border-4 border-dashed border-border-light dark:border-border-dark rounded-xl m-4 p-8 bg-background-light dark:bg-background-dark transition-all-medium animate-fade-in">
-                    <Code className="w-16 h-16 mb-4 text-gray-400 dark:text-gray-600 animate-bounce" />
+                {/* CONDITIONAL RENDERING FOR MOBILE DRAG-AND-DROP USABILITY FIX */}
+                {components.length === 0 || isDraggingFromPalette ? (
+                  <div
+                    className={`flex flex-col items-center justify-center h-full min-h-[500px] text-text-secondary border-4 border-dashed rounded-xl m-4 p-8 transition-all-medium animate-fade-in
+                                 ${
+                                   isDraggingFromPalette
+                                     ? "border-green-500/80 bg-green-50/10 dark:bg-green-900/10" // Highlight drop zone
+                                     : "border-border-light dark:border-border-dark bg-background-light dark:bg-background-dark"
+                                 }`}
+                  >
+                    <Code className="w-16 h-16 mb-4 text-gray-400 dark:text-gray-600" />
                     <p className="text-xl font-semibold mb-2 text-center">
-                      Start Building Your Email
+                      {isDraggingFromPalette
+                        ? "Release to Drop Component"
+                        : "Start Building Your Email"}
                     </p>
                     <p className="text-center">
-                      Drag components from the left panel here to create your
-                      layout.
+                      {isDraggingFromPalette
+                        ? "Drop anywhere in this area."
+                        : "Drag components from the left panel here to create your layout."}
                     </p>
                   </div>
                 ) : (
